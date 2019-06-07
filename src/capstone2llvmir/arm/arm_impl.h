@@ -152,7 +152,6 @@ class Capstone2LlvmIrTranslatorArm_impl :
 		void translateMls(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
 		void translateMov(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
 		void translateMovt(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
-		void translateMovw(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
 		void translateMul(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
 		void translateNop(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);
 		void translateOrr(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb);

@@ -19,45 +19,45 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::initializeArchSpecific()
 {
 	std::map<uint32_t, std::string> r2n =
 	{
-			{PPC_REG_CR0_LT, "cr0_lt"},
-			{PPC_REG_CR0_GT, "cr0_gt"},
-			{PPC_REG_CR0_EQ, "cr0_eq"},
-			{PPC_REG_CR0_SO, "cr0_so"},
+			{PPC_REG_CR0LT, "cr0_lt"},
+			{PPC_REG_CR0GT, "cr0_gt"},
+			{PPC_REG_CR0EQ, "cr0_eq"},
+			{PPC_REG_CR0UN, "cr0_un"},
 
-			{PPC_REG_CR1_LT, "cr1_lt"},
-			{PPC_REG_CR1_GT, "cr1_gt"},
-			{PPC_REG_CR1_EQ, "cr1_eq"},
-			{PPC_REG_CR1_SO, "cr1_so"},
+			{PPC_REG_CR1LT, "cr1_lt"},
+			{PPC_REG_CR1GT, "cr1_gt"},
+			{PPC_REG_CR1EQ, "cr1_eq"},
+			{PPC_REG_CR1UN, "cr1_un"},
 
-			{PPC_REG_CR2_LT, "cr2_lt"},
-			{PPC_REG_CR2_GT, "cr2_gt"},
-			{PPC_REG_CR2_EQ, "cr2_eq"},
-			{PPC_REG_CR2_SO, "cr2_so"},
+			{PPC_REG_CR2LT, "cr2_lt"},
+			{PPC_REG_CR2GT, "cr2_gt"},
+			{PPC_REG_CR2EQ, "cr2_eq"},
+			{PPC_REG_CR2UN, "cr2_un"},
 
-			{PPC_REG_CR3_LT, "cr3_lt"},
-			{PPC_REG_CR3_GT, "cr3_gt"},
-			{PPC_REG_CR3_EQ, "cr3_eq"},
-			{PPC_REG_CR3_SO, "cr3_so"},
+			{PPC_REG_CR3LT, "cr3_lt"},
+			{PPC_REG_CR3GT, "cr3_gt"},
+			{PPC_REG_CR3EQ, "cr3_eq"},
+			{PPC_REG_CR3UN, "cr3_un"},
 
-			{PPC_REG_CR4_LT, "cr4_lt"},
-			{PPC_REG_CR4_GT, "cr4_gt"},
-			{PPC_REG_CR4_EQ, "cr4_eq"},
-			{PPC_REG_CR4_SO, "cr4_so"},
+			{PPC_REG_CR4LT, "cr4_lt"},
+			{PPC_REG_CR4GT, "cr4_gt"},
+			{PPC_REG_CR4EQ, "cr4_eq"},
+			{PPC_REG_CR4UN, "cr4_un"},
 
-			{PPC_REG_CR5_LT, "cr5_lt"},
-			{PPC_REG_CR5_GT, "cr5_gt"},
-			{PPC_REG_CR5_EQ, "cr5_eq"},
-			{PPC_REG_CR5_SO, "cr5_so"},
+			{PPC_REG_CR5LT, "cr5_lt"},
+			{PPC_REG_CR5GT, "cr5_gt"},
+			{PPC_REG_CR5EQ, "cr5_eq"},
+			{PPC_REG_CR5UN, "cr5_un"},
 
-			{PPC_REG_CR6_LT, "cr6_lt"},
-			{PPC_REG_CR6_GT, "cr6_gt"},
-			{PPC_REG_CR6_EQ, "cr6_eq"},
-			{PPC_REG_CR6_SO, "cr6_so"},
+			{PPC_REG_CR6LT, "cr6_lt"},
+			{PPC_REG_CR6GT, "cr6_gt"},
+			{PPC_REG_CR6EQ, "cr6_eq"},
+			{PPC_REG_CR6UN, "cr6_un"},
 
-			{PPC_REG_CR7_LT, "cr7_lt"},
-			{PPC_REG_CR7_GT, "cr7_gt"},
-			{PPC_REG_CR7_EQ, "cr7_eq"},
-			{PPC_REG_CR7_SO, "cr7_so"},
+			{PPC_REG_CR7LT, "cr7_lt"},
+			{PPC_REG_CR7GT, "cr7_gt"},
+			{PPC_REG_CR7EQ, "cr7_eq"},
+			{PPC_REG_CR7UN, "cr7_un"},
 	};
 
 	_reg2name = std::move(r2n);
@@ -83,57 +83,58 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::initializeRegTypeMap()
 	std::map<uint32_t, llvm::Type*> r2t =
 	{
 			{PPC_REG_CARRY, i1},
+			{PPC_REG_XER, defTy},
+			{PPC_REG_ZERO, defTy},
 
 			// Condition registers.
 			// 4-bit x 8 = 32-bit CR register.
 			//
-			{PPC_REG_CR0_LT, i1},
-			{PPC_REG_CR0_GT, i1},
-			{PPC_REG_CR0_EQ, i1},
-			{PPC_REG_CR0_SO, i1},
+{PPC_REG_CR1EQ, defTy},
 
-			{PPC_REG_CR1_LT, i1},
-			{PPC_REG_CR1_GT, i1},
-			{PPC_REG_CR1_EQ, i1},
-			{PPC_REG_CR1_SO, i1},
+			{PPC_REG_CR0LT, i1},
+			{PPC_REG_CR0GT, i1},
+			{PPC_REG_CR0EQ, i1},
+			{PPC_REG_CR0UN, i1},
 
-			{PPC_REG_CR2_LT, i1},
-			{PPC_REG_CR2_GT, i1},
-			{PPC_REG_CR2_EQ, i1},
-			{PPC_REG_CR2_SO, i1},
+			{PPC_REG_CR1LT, i1},
+			{PPC_REG_CR1GT, i1},
+			{PPC_REG_CR1EQ, i1},
+			{PPC_REG_CR1UN, i1},
 
-			{PPC_REG_CR3_LT, i1},
-			{PPC_REG_CR3_GT, i1},
-			{PPC_REG_CR3_EQ, i1},
-			{PPC_REG_CR3_SO, i1},
+			{PPC_REG_CR2LT, i1},
+			{PPC_REG_CR2GT, i1},
+			{PPC_REG_CR2EQ, i1},
+			{PPC_REG_CR2UN, i1},
 
-			{PPC_REG_CR4_LT, i1},
-			{PPC_REG_CR4_GT, i1},
-			{PPC_REG_CR4_EQ, i1},
-			{PPC_REG_CR4_SO, i1},
+			{PPC_REG_CR3LT, i1},
+			{PPC_REG_CR3GT, i1},
+			{PPC_REG_CR3EQ, i1},
+			{PPC_REG_CR3UN, i1},
 
-			{PPC_REG_CR5_LT, i1},
-			{PPC_REG_CR5_GT, i1},
-			{PPC_REG_CR5_EQ, i1},
-			{PPC_REG_CR5_SO, i1},
+			{PPC_REG_CR4LT, i1},
+			{PPC_REG_CR4GT, i1},
+			{PPC_REG_CR4EQ, i1},
+			{PPC_REG_CR4UN, i1},
 
-			{PPC_REG_CR6_LT, i1},
-			{PPC_REG_CR6_GT, i1},
-			{PPC_REG_CR6_EQ, i1},
-			{PPC_REG_CR6_SO, i1},
+			{PPC_REG_CR5LT, i1},
+			{PPC_REG_CR5GT, i1},
+			{PPC_REG_CR5EQ, i1},
+			{PPC_REG_CR5UN, i1},
 
-			{PPC_REG_CR7_LT, i1},
-			{PPC_REG_CR7_GT, i1},
-			{PPC_REG_CR7_EQ, i1},
-			{PPC_REG_CR7_SO, i1},
+			{PPC_REG_CR6LT, i1},
+			{PPC_REG_CR6GT, i1},
+			{PPC_REG_CR6EQ, i1},
+			{PPC_REG_CR6UN, i1},
+
+			{PPC_REG_CR7LT, i1},
+			{PPC_REG_CR7GT, i1},
+			{PPC_REG_CR7EQ, i1},
+			{PPC_REG_CR7UN, i1},
 
 			// We also define these registers, because they can unexpectedly be
 			// operands of some instructions, and if we do not have it, operand
 			// loading/storing would fail.
-			// Do not intentionally use it, use PPC_REG_CRx_LT, etc. instead.
-			//
-			// TODO: Remove these and modify register load/store methods to
-			// translate loading/storing of these into PPC_REG_CRx_LT, etc.
+			// Do not intentionally use it, use PPC_REG_CRxyz instead.
 			//
 			{PPC_REG_CR0, i4},
 			{PPC_REG_CR1, i4},
@@ -371,8 +372,6 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::initializeRegTypeMap()
 			{PPC_REG_RM, defTy},
 			{PPC_REG_CTR8, defTy},
 			{PPC_REG_LR8, defTy},
-			{PPC_REG_CR1EQ, defTy},
-			{PPC_REG_X2, defTy},
 	};
 
 	_reg2type = std::move(r2t);
@@ -514,6 +513,7 @@ Capstone2LlvmIrTranslatorPowerpc_impl::_i2fm =
 		{PPC_INS_ADDIC, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAddc},
 		{PPC_INS_ADDIS, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAddis},
 		{PPC_INS_ADDME, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAddme},
+		{PPC_INS_ADDPCIS, nullptr},
 		{PPC_INS_ADDZE, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAddze},
 		{PPC_INS_AND, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAnd},
 		{PPC_INS_ANDC, &Capstone2LlvmIrTranslatorPowerpc_impl::translateAndc},
@@ -1648,8 +1648,6 @@ Capstone2LlvmIrTranslatorPowerpc_impl::_i2fm =
 		{PPC_INS_BDZFL, &Capstone2LlvmIrTranslatorPowerpc_impl::translateB},
 		{PPC_INS_BDZFLA, &Capstone2LlvmIrTranslatorPowerpc_impl::translateB},
 		{PPC_INS_BDZFLRL, &Capstone2LlvmIrTranslatorPowerpc_impl::translateB},
-
-		{PPC_INS_BCT, nullptr},
 };
 
 } // namespace capstone2llvmir

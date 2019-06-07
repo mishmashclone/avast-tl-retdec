@@ -1016,7 +1016,7 @@ void Capstone2LlvmIrTranslatorArm_impl::translateMls(cs_insn* i, cs_arm* ai, llv
 }
 
 /**
- * ARM_INS_MOV, ARM_INS_MVN,
+ * ARM_INS_MOV, ARM_INS_MVN, ARM_INS_MOVS
  */
 void Capstone2LlvmIrTranslatorArm_impl::translateMov(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb)
 {
@@ -1032,7 +1032,7 @@ void Capstone2LlvmIrTranslatorArm_impl::translateMov(cs_insn* i, cs_arm* ai, llv
 	// - updates the N and Z flags according to the result
 	// - can update the C flag during the calculation of Operand2 (shifts?)
 	// - does not affect the V flag.
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM_INS_MOVS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(op1->getType(), 0);
 		storeRegister(ARM_REG_CPSR_N, irb.CreateICmpSLT(op1, zero), irb);
@@ -1125,30 +1125,6 @@ void Capstone2LlvmIrTranslatorArm_impl::translateMovt(cs_insn* i, cs_arm* ai, ll
 		std::tie(op0, op1) = loadOpBinary(ai, irb, eOpConv::ZEXT_TRUNC);
 		op0 = irb.CreateAnd(op0, 0xffff);
 		op1 = irb.CreateShl(op1, 16);
-		op0 = irb.CreateOr(op0, op1);
-		storeOp(ai->operands[0], op0, irb);
-	}
-}
-
-/**
- * ARM_INS_MOVW
- */
-void Capstone2LlvmIrTranslatorArm_impl::translateMovw(cs_insn* i, cs_arm* ai, llvm::IRBuilder<>& irb)
-{
-	EXPECT_IS_BINARY(i, ai, irb);
-
-	// TODO: It looks like on THUMB, result is overwritten -- investigate.
-	// Add/Fix THUMB unit tests.
-	if (_basicMode == CS_MODE_THUMB)
-	{
-		op1 = loadOpBinaryOp1(ai, irb);
-		op1 = irb.CreateZExtOrTrunc(op1, irb.getInt32Ty());
-		storeOp(ai->operands[0], op1, irb);
-	}
-	else
-	{
-		std::tie(op0, op1) = loadOpBinary(ai, irb, eOpConv::ZEXT_TRUNC);
-		op0 = irb.CreateAnd(op0, 0xffff0000);
 		op0 = irb.CreateOr(op0, op1);
 		storeOp(ai->operands[0], op0, irb);
 	}

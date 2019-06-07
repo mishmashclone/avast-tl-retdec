@@ -266,6 +266,59 @@ void Capstone2LlvmIrTranslatorArm64_impl::generateRegisters()
 	createRegister(ARM64_REG_B30, _regLt);
 	createRegister(ARM64_REG_B31, _regLt);
 
+	// Scalable vector extension.
+	createRegister(ARM64_REG_FFR, _regLt);
+
+	createRegister(ARM64_REG_P0, _regLt);
+	createRegister(ARM64_REG_P1, _regLt);
+	createRegister(ARM64_REG_P2, _regLt);
+	createRegister(ARM64_REG_P3, _regLt);
+	createRegister(ARM64_REG_P4, _regLt);
+	createRegister(ARM64_REG_P5, _regLt);
+	createRegister(ARM64_REG_P6, _regLt);
+	createRegister(ARM64_REG_P7, _regLt);
+	createRegister(ARM64_REG_P8, _regLt);
+	createRegister(ARM64_REG_P9, _regLt);
+	createRegister(ARM64_REG_P10, _regLt);
+	createRegister(ARM64_REG_P11, _regLt);
+	createRegister(ARM64_REG_P12, _regLt);
+	createRegister(ARM64_REG_P13, _regLt);
+	createRegister(ARM64_REG_P14, _regLt);
+	createRegister(ARM64_REG_P15, _regLt);
+
+	createRegister(ARM64_REG_Z0, _regLt);
+	createRegister(ARM64_REG_Z1, _regLt);
+	createRegister(ARM64_REG_Z2, _regLt);
+	createRegister(ARM64_REG_Z3, _regLt);
+	createRegister(ARM64_REG_Z4, _regLt);
+	createRegister(ARM64_REG_Z5, _regLt);
+	createRegister(ARM64_REG_Z6, _regLt);
+	createRegister(ARM64_REG_Z7, _regLt);
+	createRegister(ARM64_REG_Z8, _regLt);
+	createRegister(ARM64_REG_Z9, _regLt);
+	createRegister(ARM64_REG_Z10, _regLt);
+	createRegister(ARM64_REG_Z11, _regLt);
+	createRegister(ARM64_REG_Z12, _regLt);
+	createRegister(ARM64_REG_Z13, _regLt);
+	createRegister(ARM64_REG_Z14, _regLt);
+	createRegister(ARM64_REG_Z15, _regLt);
+	createRegister(ARM64_REG_Z16, _regLt);
+	createRegister(ARM64_REG_Z17, _regLt);
+	createRegister(ARM64_REG_Z18, _regLt);
+	createRegister(ARM64_REG_Z19, _regLt);
+	createRegister(ARM64_REG_Z20, _regLt);
+	createRegister(ARM64_REG_Z21, _regLt);
+	createRegister(ARM64_REG_Z22, _regLt);
+	createRegister(ARM64_REG_Z23, _regLt);
+	createRegister(ARM64_REG_Z24, _regLt);
+	createRegister(ARM64_REG_Z25, _regLt);
+	createRegister(ARM64_REG_Z26, _regLt);
+	createRegister(ARM64_REG_Z27, _regLt);
+	createRegister(ARM64_REG_Z28, _regLt);
+	createRegister(ARM64_REG_Z29, _regLt);
+	createRegister(ARM64_REG_Z30, _regLt);
+	createRegister(ARM64_REG_Z31, _regLt);
+
 	// General purpose registers
 	createRegister(ARM64_REG_X0, _regLt);
 	createRegister(ARM64_REG_X1, _regLt);
@@ -298,6 +351,8 @@ void Capstone2LlvmIrTranslatorArm64_impl::generateRegisters()
 	createRegister(ARM64_REG_X28, _regLt);
 
 	// Special registers.
+
+	createRegister(ARM64_REG_NZCV, _regLt);
 
 	// FP Frame pointer.
 	createRegister(ARM64_REG_X29, _regLt);
@@ -379,28 +434,8 @@ llvm::Value* Capstone2LlvmIrTranslatorArm64_impl::extractVectorValue(
 		return val;
 	}
 
-	// Vector element size specifier
-	switch(op.vess)
-	{
-		case ARM64_VESS_B:
-			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 8 * op.vector_index));
-			return irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt8Ty(_module->getContext()));
-		case ARM64_VESS_H:
-			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 16 * op.vector_index));
-			return irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt16Ty(_module->getContext()));
-		case ARM64_VESS_S:
-			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 32 * op.vector_index));
-			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt32Ty(_module->getContext()));
-			return irb.CreateBitCast(val, llvm::Type::getFloatTy(_module->getContext()));
-		case ARM64_VESS_D:
-			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 64 * op.vector_index));
-			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt64Ty(_module->getContext()));
-			return irb.CreateBitCast(val, llvm::Type::getDoubleTy(_module->getContext()));
-		case ARM64_VESS_INVALID:
-			return val;
-		default:
-			throw GenericError("Arm64: extractVectorValue(): Unknown VESS type");
-	}
+	// TODO: ARM64_VESS_x was used here to compute val, but it was removed in
+	// Capstone. Should we use arm64_vas instead?
 
 	return val;
 }

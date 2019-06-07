@@ -95,10 +95,11 @@ class Capstone2LlvmIrTranslatorPowerpc_impl :
 				ppc_cr_types type);
 
 		bool isGeneralPurposeRegister(uint32_t r);
-		uint32_t getGeneralPurposeRegisterIndex(uint32_t r);
-		uint32_t crBitIndexToCrRegister(uint32_t idx);
+		bool isGeneralPurposeRegister(cs_ppc_op& op);
 		bool isCrRegister(uint32_t r);
 		bool isCrRegister(cs_ppc_op& op);
+		bool isCrSubRegister(uint32_t r);
+		bool isCrSubRegister(cs_ppc_op& op);
 
 		virtual bool isOperandRegister(cs_ppc_op& op) override;
 //

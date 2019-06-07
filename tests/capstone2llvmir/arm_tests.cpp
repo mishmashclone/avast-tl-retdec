@@ -1629,7 +1629,7 @@ TEST_P(Capstone2LlvmIrTranslatorArmTests, ARM_INS_MOVT)
 
 TEST_P(Capstone2LlvmIrTranslatorArmTests, ARM_INS_MOVW)
 {
-	SKIP_MODE_THUMB;
+	ALL_MODES;
 
 	setRegisters({
 		{ARM_REG_R0, 0x12345678},
@@ -1637,9 +1637,9 @@ TEST_P(Capstone2LlvmIrTranslatorArmTests, ARM_INS_MOVW)
 
 	emulate("movw r0, #0xabcd");
 
-	EXPECT_JUST_REGISTERS_LOADED({ARM_REG_R0});
+	EXPECT_NO_REGISTERS_LOADED();
 	EXPECT_JUST_REGISTERS_STORED({
-		{ARM_REG_R0, 0x1234abcd},
+		{ARM_REG_R0, 0xabcd},
 	});
 	EXPECT_NO_MEMORY_LOADED_STORED();
 	EXPECT_NO_VALUE_CALLED();

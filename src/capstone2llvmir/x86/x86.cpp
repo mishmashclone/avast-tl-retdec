@@ -1404,7 +1404,6 @@ Capstone2LlvmIrTranslatorX86_impl::loadOpFloatingBinaryTop(
 	}
 
 	if (i->id == X86_INS_FSUBP
-			|| i->id == X86_INS_FADDP
 			|| i->id == X86_INS_FDIVP
 			|| i->id == X86_INS_FDIVRP
 			|| i->id == X86_INS_FMULP
@@ -4462,7 +4461,7 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFmul(cs_insn* i, cs_x86* xi, ll
 }
 
 /**
- * X86_INS_FADD, X86_INS_FADDP, X86_INS_FIADD
+ * X86_INS_FADD, X86_INS_FIADD
  */
 void Capstone2LlvmIrTranslatorX86_impl::translateFadd(cs_insn* i, cs_x86* xi, llvm::IRBuilder<>& irb)
 {
@@ -4472,19 +4471,13 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFadd(cs_insn* i, cs_x86* xi, ll
 
 	auto* fadd = irb.CreateFAdd(op0, op1);
 
-	if (xi->op_count == 2 || i->id == X86_INS_FADDP)
+	if (xi->op_count == 2 || i->id == X86_INS_FADD)
 	{
 		storeX87DataReg(irb, idx, fadd);
 	}
 	else
 	{
 		storeX87DataReg(irb, top, fadd);
-	}
-
-	if (i->id == X86_INS_FADDP)
-	{
-		clearX87TagReg(irb, top); // pop
-		x87IncTop(irb, top);
 	}
 }
 
@@ -4764,8 +4757,8 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFdecstp(cs_insn* i, cs_x86* xi,
 /**
  * X86_INS_FUCOM, X86_INS_FUCOMP, X86_INS_FUCOMPP
  * X86_INS_FCOM, X86_INS_FCOMP, X86_INS_FCOMPP
- * X86_INS_FUCOMI, X86_INS_FUCOMIP
- * X86_INS_FCOMI, X86_INS_FCOMIP
+ * X86_INS_FUCOMI, X86_INS_FUCOMPI
+ * X86_INS_FCOMI, X86_INS_FCOMPI
  * X86_INS_FTST
  * X86_INS_FICOM, X86_INS_FICOMP
  */
@@ -4775,16 +4768,16 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFucomPop(cs_insn* i, cs_x86* xi
 
 	bool doublePop = i->id == X86_INS_FUCOMPP || i->id == X86_INS_FCOMPP;
 	bool pop = i->id == X86_INS_FUCOMP || i->id == X86_INS_FCOMP
-			|| i->id == X86_INS_FUCOMIP || i->id == X86_INS_FCOMIP
+			|| i->id == X86_INS_FUCOMPI || i->id == X86_INS_FCOMPI
 			|| i->id == X86_INS_FICOMP || doublePop;
 
 	uint32_t r1 = X87_REG_C0;
 	uint32_t r2 = X87_REG_C2;
 	uint32_t r3 = X87_REG_C3;
 	if (i->id == X86_INS_FUCOMI
-			|| i->id == X86_INS_FUCOMIP
+			|| i->id == X86_INS_FUCOMPI
 			|| i->id == X86_INS_FCOMI
-			|| i->id == X86_INS_FCOMIP)
+			|| i->id == X86_INS_FCOMPI)
 	{
 		r1 = X86_REG_CF;
 		r2 = X86_REG_PF;
