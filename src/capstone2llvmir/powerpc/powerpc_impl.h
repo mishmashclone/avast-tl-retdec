@@ -100,6 +100,8 @@ class Capstone2LlvmIrTranslatorPowerpc_impl :
 		bool isCrRegister(cs_ppc_op& op);
 		bool isCrSubRegister(uint32_t r);
 		bool isCrSubRegister(cs_ppc_op& op);
+		bool isCrSubRegisterOrSubRegister(uint32_t r);
+		bool isCrSubRegisterOrSubRegister(cs_ppc_op& op);
 
 		virtual bool isOperandRegister(cs_ppc_op& op) override;
 //

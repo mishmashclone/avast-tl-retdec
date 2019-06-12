@@ -455,6 +455,11 @@ llvm::Value* Capstone2LlvmIrTranslatorPowerpc_impl::loadCrX(
 		uint32_t crReg,
 		ppc_cr_types type)
 {
+	if (isCrSubRegister(crReg))
+	{
+		return loadRegister(crReg, irb);
+	}
+
 	uint32_t ltR = PPC_REG_CR0LT;
 	uint32_t gtR = PPC_REG_CR0GT;
 	uint32_t eqR = PPC_REG_CR0EQ;
@@ -517,7 +522,7 @@ llvm::Value* Capstone2LlvmIrTranslatorPowerpc_impl::loadCrX(
 	switch (type)
 	{
 		case PPC_CR_LT:
-			return loadRegister(ltR, irb);;
+			return loadRegister(ltR, irb);
 		case PPC_CR_GT:
 			return loadRegister(gtR, irb);
 		case PPC_CR_EQ:
@@ -588,6 +593,18 @@ bool Capstone2LlvmIrTranslatorPowerpc_impl::isCrSubRegister(cs_ppc_op& op)
 bool Capstone2LlvmIrTranslatorPowerpc_impl::isOperandRegister(cs_ppc_op& op)
 {
 	return op.type == PPC_OP_REG;
+}
+
+bool Capstone2LlvmIrTranslatorPowerpc_impl::isCrSubRegisterOrSubRegister(
+		uint32_t r)
+{
+	return isCrRegister(r) || isCrSubRegister(r);
+}
+
+bool Capstone2LlvmIrTranslatorPowerpc_impl::isCrSubRegisterOrSubRegister(
+		cs_ppc_op& op)
+{
+	return op.type == PPC_OP_REG && isCrSubRegisterOrSubRegister(op.reg);
 }
 
 //
@@ -748,6 +765,12 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateAndis(cs_insn* i, cs_ppc* p
  */
 void Capstone2LlvmIrTranslatorPowerpc_impl::translateClrlwi(cs_insn* i, cs_ppc* pi, llvm::IRBuilder<>& irb)
 {
+	if (i->mnemonic == std::string("rlwinm")) // TODO: report Capstone
+	{
+		translateRotateComplex5op(i, pi, irb);
+		return;
+	}
+
 	EXPECT_IS_BINARY_OR_TERNARY(i, pi, irb);
 
 	std::tie(op1, op2) = loadOpBinaryOrTernaryOp1Op2(pi, irb, eOpConv::ZEXT_TRUNC);
@@ -765,15 +788,15 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateClrlwi(cs_insn* i, cs_ppc* 
  * PPC_INS_CMPDI = cmpi 0, 1, rA, value
  * But Capstone also allows things like "cmpdi cr5, 0, 1"
  *
+ * PPC_INS_CMP
  * PPC_INS_CMPW, PPC_INS_CMPWI
- * PPC_INS_CMPLD, PPC_INS_CMPLDI
+ * PPC_INS_CMPL, PPC_INS_CMPLD, PPC_INS_CMPLDI
  * PPC_INS_CMPLW, PPC_INS_CMPLWI
  */
 void Capstone2LlvmIrTranslatorPowerpc_impl::translateCmp(cs_insn* i, cs_ppc* pi, llvm::IRBuilder<>& irb)
 {
-std::cout << "===========+> 1" << std::endl;
 	EXPECT_IS_BINARY_OR_TERNARY(i, pi, irb);
-std::cout << "===========+> 2" << std::endl;
+
 	uint32_t crReg = PPC_REG_CR0;
 	if (pi->op_count == 2)
 	{
@@ -793,9 +816,9 @@ std::cout << "===========+> 2" << std::endl;
 		throw GenericError("Unhandled cmp instruction format.");
 	}
 
-	if (i->id == PPC_INS_CMPW
+	if (i->id == PPC_INS_CMPW || i->mnemonic == std::string("cmpw") // TODO: report Capstone
 			|| i->id == PPC_INS_CMPWI
-			|| i->id == PPC_INS_CMPLW
+			|| i->id == PPC_INS_CMPLW || i->mnemonic == std::string("cmplw") // TODO: report Capstone
 			|| i->id == PPC_INS_CMPLWI)
 	{
 		op0 = irb.CreateSExtOrTrunc(op0, irb.getInt32Ty());
@@ -803,9 +826,10 @@ std::cout << "===========+> 2" << std::endl;
 	}
 
 	bool signedCmp = true;
-	if (i->id == PPC_INS_CMPLD
+	if (i->id == PPC_INS_CMPL
+			|| i->id == PPC_INS_CMPLD
 			|| i->id == PPC_INS_CMPLDI
-			|| i->id == PPC_INS_CMPLW
+			|| i->id == PPC_INS_CMPLW || i->mnemonic == std::string("cmplw") // TODO: report Capstone
 			|| i->id == PPC_INS_CMPLWI)
 	{
 		signedCmp = false;
@@ -1964,7 +1988,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateXoris(cs_insn* i, cs_ppc* p
  * Decrement CTR, branch if CTR != 0 & cond false:
  * PPC_INS_BDNZF    - cond
  * PPC_INS_BDNZFA   - cond, absolute
- * PPC_INS_BDNZFLR  - cond, toLR, (missing)
+ * PPC_INS_BDNZFLR  - cond, toLR
  * PPC_INS_BDNZFL   - cond, link
  * PPC_INS_BDNZFLA  - cond, ansolute, link
  * PPC_INS_BDNZFLRL - cond, link, toLR
@@ -1992,6 +2016,117 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateXoris(cs_insn* i, cs_ppc* p
  * PPC_INS_BDZFL    - cond, link
  * PPC_INS_BDZFLA   - cond, absolute, link
  * PPC_INS_BDZFLRL  - cond, link, toLR
+ *
+ * Many other variants added to Capstone in PowerPC upgrade:
+ * PPC_INS_BLT      -
+ * PPC_INS_BLTA     -
+ * PPC_INS_BLTCTR   - toCTR
+ * PPC_INS_BLTCTRL  - toCTR, link
+ * PPC_INS_BLTL     - link
+ * PPC_INS_BLTLA    - link
+ * PPC_INS_BLTLR    - toLR
+ * PPC_INS_BLTLRL   - toLR, link
+ *
+ * PPC_INS_BLE
+ * PPC_INS_BLEA
+ * PPC_INS_BLECTR
+ * PPC_INS_BLECTRL
+ * PPC_INS_BLEL
+ * PPC_INS_BLELA
+ * PPC_INS_BLELR
+ * PPC_INS_BLELRL
+ *
+ * PPC_INS_BEQ
+ * PPC_INS_BEQA
+ * PPC_INS_BEQCTR
+ * PPC_INS_BEQCTRL
+ * PPC_INS_BEQL
+ * PPC_INS_BEQLA
+ * PPC_INS_BEQLR
+ * PPC_INS_BEQLRL
+ *
+ * PPC_INS_BGE
+ * PPC_INS_BGEA
+ * PPC_INS_BGECTR
+ * PPC_INS_BGECTRL
+ * PPC_INS_BGEL
+ * PPC_INS_BGELA
+ * PPC_INS_BGELR
+ * PPC_INS_BGELRL
+ *
+ * PPC_INS_BGT
+ * PPC_INS_BGTA
+ * PPC_INS_BGTCTR
+ * PPC_INS_BGTCTRL
+ * PPC_INS_BGTL
+ * PPC_INS_BGTLA
+ * PPC_INS_BGTLR
+ * PPC_INS_BGTLRL
+ *
+ * PPC_INS_BNE
+ * PPC_INS_BNEA
+ * PPC_INS_BNECTR
+ * PPC_INS_BNECTRL
+ * PPC_INS_BNEL
+ * PPC_INS_BNELA
+ * PPC_INS_BNELR
+ * PPC_INS_BNELRL
+ *
+ * PPC_INS_BUN
+ * PPC_INS_BUNA
+ * PPC_INS_BUNCTR
+ * PPC_INS_BUNCTRL
+ * PPC_INS_BUNL
+ * PPC_INS_BUNLA
+ * PPC_INS_BUNLR
+ * PPC_INS_BUNLRL
+ *
+ * PPC_INS_BNU
+ * PPC_INS_BNUA
+ * PPC_INS_BNUCTR
+ * PPC_INS_BNUCTRL
+ * PPC_INS_BNUL
+ * PPC_INS_BNULA
+ * PPC_INS_BNULR
+ * PPC_INS_BNULRL
+ *
+ * PPC_INS_BSO
+ * PPC_INS_BSOA
+ * PPC_INS_BSOCTR
+ * PPC_INS_BSOCTRL
+ * PPC_INS_BSOL
+ * PPC_INS_BSOLA
+ * PPC_INS_BSOLR
+ * PPC_INS_BSOLRL
+ *
+ * PPC_INS_BNS
+ * PPC_INS_BNSA
+ * PPC_INS_BNSCTR
+ * PPC_INS_BNSCTRL
+ * PPC_INS_BNSL
+ * PPC_INS_BNSLA
+ * PPC_INS_BNSLR
+ * PPC_INS_BNSLRL
+ *
+ * Not explicitly handled, Capstone translates these as ble:
+ * PPC_INS_BNG      -
+ * PPC_INS_BNGA
+ * PPC_INS_BNGCTR
+ * PPC_INS_BNGCTRL
+ * PPC_INS_BNGL
+ * PPC_INS_BNGLA
+ * PPC_INS_BNGLR
+ * PPC_INS_BNGLRL
+ *
+ * Not explicitly handled, Capstone translates these as bge:
+ * PPC_INS_BNL
+ * PPC_INS_BNLA
+ * PPC_INS_BNLCTR
+ * PPC_INS_BNLCTRL
+ * PPC_INS_BNLL
+ * PPC_INS_BNLLA
+ * PPC_INS_BNLLR
+ * PPC_INS_BNLLRL
  */
 void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, llvm::IRBuilder<>& irb)
 {
@@ -2012,6 +2147,19 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			PPC_INS_BDZL, PPC_INS_BDZLA, PPC_INS_BDZLRL,
 			PPC_INS_BDZTL, PPC_INS_BDZTLA, PPC_INS_BDZTLRL,
 			PPC_INS_BDZFL, PPC_INS_BDZFLA, PPC_INS_BDZFLRL,
+
+			PPC_INS_BLTCTRL, PPC_INS_BLTL, PPC_INS_BLTLA, PPC_INS_BLTLRL,
+			PPC_INS_BLECTRL, PPC_INS_BLEL, PPC_INS_BLELA, PPC_INS_BLELRL,
+			PPC_INS_BEQCTRL, PPC_INS_BEQL, PPC_INS_BEQLA, PPC_INS_BEQLRL,
+			PPC_INS_BGECTRL, PPC_INS_BGEL, PPC_INS_BGELA, PPC_INS_BGELRL,
+			PPC_INS_BGTCTRL, PPC_INS_BGTL, PPC_INS_BGTLA, PPC_INS_BGTLRL,
+			PPC_INS_BNECTRL, PPC_INS_BNEL, PPC_INS_BNELA, PPC_INS_BNELRL,
+			PPC_INS_BUNCTRL, PPC_INS_BUNL, PPC_INS_BUNLA, PPC_INS_BUNLRL,
+			PPC_INS_BNUCTRL, PPC_INS_BNUL, PPC_INS_BNULA, PPC_INS_BNULRL,
+			PPC_INS_BSOCTRL, PPC_INS_BSOL, PPC_INS_BSOLA, PPC_INS_BSOLRL,
+			PPC_INS_BNSCTRL, PPC_INS_BNSL, PPC_INS_BNSLA, PPC_INS_BNSLRL,
+			PPC_INS_BNGCTRL, PPC_INS_BNGL, PPC_INS_BNGLA, PPC_INS_BNGLRL,
+			PPC_INS_BNLCTRL, PPC_INS_BNLL, PPC_INS_BNLLA, PPC_INS_BNLLRL,
 	};
 	bool link = linkIds.count(i->id);
 
@@ -2026,11 +2174,24 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 
 			PPC_INS_BDNZLR, PPC_INS_BDNZLRL,
 			PPC_INS_BDNZTLR, PPC_INS_BDNZTLRL,
-			PPC_INS_BDNZFLRL,
+			PPC_INS_BDNZFLR, PPC_INS_BDNZFLRL,
 
 			PPC_INS_BDZLR, PPC_INS_BDZLRL,
 			PPC_INS_BDZTLR, PPC_INS_BDZTLRL,
 			PPC_INS_BDZFLR, PPC_INS_BDZFLRL,
+
+			PPC_INS_BLTLR, PPC_INS_BLTLRL,
+			PPC_INS_BLELR, PPC_INS_BLELRL,
+			PPC_INS_BEQLR, PPC_INS_BEQLRL,
+			PPC_INS_BGELR, PPC_INS_BGELRL,
+			PPC_INS_BGTLR, PPC_INS_BGTLRL,
+			PPC_INS_BNELR, PPC_INS_BNELRL,
+			PPC_INS_BUNLR, PPC_INS_BUNLRL,
+			PPC_INS_BNULR, PPC_INS_BNULRL,
+			PPC_INS_BSOLR, PPC_INS_BSOLRL,
+			PPC_INS_BNSLR, PPC_INS_BNSLRL,
+			PPC_INS_BNGLR, PPC_INS_BNGLRL,
+			PPC_INS_BNLLR, PPC_INS_BNLLRL,
 	};
 	bool toLR = toLRIds.count(i->id);
 
@@ -2041,7 +2202,20 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			PPC_INS_BCCTR, PPC_INS_BCCTRL,
 			PPC_INS_BCTR, PPC_INS_BCTRL,
 			PPC_INS_BTCTR, PPC_INS_BTCTRL,
-			PPC_INS_BFCTR, PPC_INS_BFCTRL
+			PPC_INS_BFCTR, PPC_INS_BFCTRL,
+
+			PPC_INS_BLTCTR, PPC_INS_BLTCTRL,
+			PPC_INS_BLECTR, PPC_INS_BLECTRL,
+			PPC_INS_BEQCTR, PPC_INS_BEQCTRL,
+			PPC_INS_BGECTR, PPC_INS_BGECTRL,
+			PPC_INS_BGTCTR, PPC_INS_BGTCTRL,
+			PPC_INS_BNECTR, PPC_INS_BNECTRL,
+			PPC_INS_BUNCTR, PPC_INS_BUNCTRL,
+			PPC_INS_BNUCTR, PPC_INS_BNUCTRL,
+			PPC_INS_BSOCTR, PPC_INS_BSOCTRL,
+			PPC_INS_BNSCTR, PPC_INS_BNSCTRL,
+			PPC_INS_BNGCTR, PPC_INS_BNGCTRL,
+			PPC_INS_BNLCTR, PPC_INS_BNLCTRL,
 	};
 	bool toCTR = toCTRIds.count(i->id);
 
@@ -2053,7 +2227,8 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			PPC_INS_BFL, PPC_INS_BFLA, PPC_INS_BFLRL, PPC_INS_BFCTRL,
 
 			PPC_INS_BDNZF, PPC_INS_BDNZFA,
-			PPC_INS_BDNZFL, PPC_INS_BDNZFLA, PPC_INS_BDNZFLRL,
+			PPC_INS_BDNZFL, PPC_INS_BDNZFLA,
+			PPC_INS_BDNZFLR, PPC_INS_BDNZFLRL,
 
 			PPC_INS_BDZF, PPC_INS_BDZFA, PPC_INS_BDZFLR,
 			PPC_INS_BDZFL, PPC_INS_BDZFLA, PPC_INS_BDZFLRL,
@@ -2071,7 +2246,8 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			PPC_INS_BDNZTL, PPC_INS_BDNZTLA, PPC_INS_BDNZTLRL,
 
 			PPC_INS_BDNZF, PPC_INS_BDNZFA,
-			PPC_INS_BDNZFL, PPC_INS_BDNZFLA, PPC_INS_BDNZFLRL,
+			PPC_INS_BDNZFL, PPC_INS_BDNZFLA,
+			PPC_INS_BDNZFLR, PPC_INS_BDNZFLRL,
 	};
 	bool ctrNonzero = ctrNonzeroCondIds.count(i->id);
 
@@ -2098,7 +2274,8 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			PPC_INS_BDNZTL, PPC_INS_BDNZTLA, PPC_INS_BDNZTLRL,
 
 			PPC_INS_BDNZF, PPC_INS_BDNZFA,
-			PPC_INS_BDNZFL, PPC_INS_BDNZFLA, PPC_INS_BDNZFLRL,
+			PPC_INS_BDNZFL, PPC_INS_BDNZFLA,
+			PPC_INS_BDNZFLR, PPC_INS_BDNZFLRL,
 
 			PPC_INS_BDZT, PPC_INS_BDZTA, PPC_INS_BDZTLR,
 			PPC_INS_BDZTL, PPC_INS_BDZTLA, PPC_INS_BDZTLRL,
@@ -2114,19 +2291,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 	uint32_t crReg = PPC_REG_CR0;
 	ppc_bc crBc = pi->bc;
 
-	// TODO: Special handling because of Capstone bug:
-	// https://github.com/aquynh/capstone/issues/968
-	if (i->id == PPC_INS_BDZLA)
-	{
-		if (pi->op_count != 1
-				|| pi->operands[0].type != PPC_OP_IMM)
-		{
-			throw GenericError("unhandled PPC_INS_BDZLA format");
-		}
-
-		target = llvm::ConstantInt::get(getDefaultType(), pi->operands[0].imm - i->address);
-	}
-	else if (toLR)
+	if (toLR)
 	{
 		target = loadRegister(PPC_REG_LR, irb);
 
@@ -2141,7 +2306,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			crBc = pi->operands[0].crx.cond;
 		}
 		else if (pi->op_count == 1
-				&& isCrRegister(pi->operands[0]))
+				&& isCrSubRegisterOrSubRegister(pi->operands[0]))
 		{
 			crReg = pi->operands[0].reg;
 		}
@@ -2165,7 +2330,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			crBc = pi->operands[0].crx.cond;
 		}
 		else if (pi->op_count == 1
-				&& isCrRegister(pi->operands[0]))
+				&& isCrSubRegisterOrSubRegister(pi->operands[0]))
 		{
 			crReg = pi->operands[0].reg;
 		}
@@ -2199,7 +2364,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 			target = loadOpBinaryOp1(pi, irb);
 		}
 		else if (pi->op_count == 2
-				&& isCrRegister(pi->operands[0])
+				&& isCrSubRegisterOrSubRegister(pi->operands[0])
 				&& pi->operands[1].type == PPC_OP_IMM)
 		{
 			crReg = pi->operands[0].reg;
@@ -2213,7 +2378,7 @@ void Capstone2LlvmIrTranslatorPowerpc_impl::translateB(cs_insn* i, cs_ppc* pi, l
 		// even when relative branch to zero == itself.
 		//
 		else if (pi->op_count == 1
-				&& isCrRegister(pi->operands[0]))
+				&& isCrSubRegisterOrSubRegister(pi->operands[0]))
 		{
 			crReg = pi->operands[0].reg;
 			target = getThisInsnAddress(i);

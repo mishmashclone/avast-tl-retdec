@@ -1345,6 +1345,11 @@ Capstone2LlvmIrTranslatorX86_impl::loadOpFloatingBinaryTop(
 
 		op0 = loadX87DataReg(irb, idx);
 		op1 = loadX87DataReg(irb, idx2);
+
+		if (top == idx)
+		{
+			idx = idx2;
+		}
 	}
 	else if (xi->op_count == 1
 			&& xi->operands[0].type == X86_OP_REG
@@ -1404,6 +1409,7 @@ Capstone2LlvmIrTranslatorX86_impl::loadOpFloatingBinaryTop(
 	}
 
 	if (i->id == X86_INS_FSUBP
+			|| i->mnemonic == std::string("faddp") // i->id == X86_INS_FADDP
 			|| i->id == X86_INS_FDIVP
 			|| i->id == X86_INS_FDIVRP
 			|| i->id == X86_INS_FMULP
@@ -4462,6 +4468,8 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFmul(cs_insn* i, cs_x86* xi, ll
 
 /**
  * X86_INS_FADD, X86_INS_FIADD
+ * X86_INS_FADDP - this one is missing in the latest next branch, but we hack it
+ * to fix unit tests.
  */
 void Capstone2LlvmIrTranslatorX86_impl::translateFadd(cs_insn* i, cs_x86* xi, llvm::IRBuilder<>& irb)
 {
@@ -4471,13 +4479,19 @@ void Capstone2LlvmIrTranslatorX86_impl::translateFadd(cs_insn* i, cs_x86* xi, ll
 
 	auto* fadd = irb.CreateFAdd(op0, op1);
 
-	if (xi->op_count == 2 || i->id == X86_INS_FADD)
+	if (xi->op_count == 2 || i->mnemonic == std::string("faddp")) // i->id == X86_INS_FADDP)
 	{
 		storeX87DataReg(irb, idx, fadd);
 	}
 	else
 	{
 		storeX87DataReg(irb, top, fadd);
+	}
+
+	if (i->mnemonic == std::string("faddp")) // i->id == X86_INS_FADDP)
+	{
+		clearX87TagReg(irb, top); // pop
+		x87IncTop(irb, top);
 	}
 }
 

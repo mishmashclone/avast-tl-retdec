@@ -2394,14 +2394,14 @@ TEST_P(Capstone2LlvmIrTranslatorPowerpcTests, PPC_INS_CRAND)
 	ALL_MODES;
 
 	setRegisters({
-		{PPC_REG_R1, 0x12},
-		{PPC_REG_R2, 0x34},
-		{PPC_REG_R3, 0x56},
+		{PPC_REG_CR0GT, true},
+		{PPC_REG_CR0EQ, false},
+		{PPC_REG_CR0UN, true},
 	});
 
 	emulate("crand 1, 2, 3");
 
-	EXPECT_JUST_REGISTERS_LOADED({PPC_REG_R1, PPC_REG_R2, PPC_REG_R3});
+	EXPECT_JUST_REGISTERS_LOADED({PPC_REG_CR0GT, PPC_REG_CR0EQ, PPC_REG_CR0UN});
 	EXPECT_JUST_REGISTERS_STORED({
 		{PPC_REG_CR0LT, ANY},
 		{PPC_REG_CR0GT, ANY},
@@ -2417,7 +2417,7 @@ TEST_P(Capstone2LlvmIrTranslatorPowerpcTests, PPC_INS_CRAND)
 	});
 	EXPECT_NO_MEMORY_LOADED_STORED();
 	EXPECT_JUST_VALUES_CALLED({
-		{_module.getFunction("__asm_crand"), {0x12, 0x34, 0x56}},
+		{_module.getFunction("__asm_crand"), {true, false, true}},
 	});
 }
 

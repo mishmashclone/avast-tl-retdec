@@ -385,8 +385,6 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateInstruction(
 	cs_detail* d = i->detail;
 	cs_arm64* ai = &d->arm64;
 
-	//std::cout << i->mnemonic << " " << i->op_str << std::endl;
-
 	auto fIt = _i2fm.find(i->id);
 	if (fIt != _i2fm.end() && fIt->second != nullptr)
 	{
@@ -434,8 +432,41 @@ llvm::Value* Capstone2LlvmIrTranslatorArm64_impl::extractVectorValue(
 		return val;
 	}
 
-	// TODO: ARM64_VESS_x was used here to compute val, but it was removed in
-	// Capstone. Should we use arm64_vas instead?
+	// TODO: This is probably not ok. There used to be op.vess value in the
+	// old Capstone, but then it was removed and there are only op.vas values.
+	// There are more vas values than there were vess values - they probably do
+	// different things (e.g. ARM64_VAS_16B vs ARM64_VAS_4B).
+	switch(op.vas)
+	{
+		case ARM64_VAS_16B:
+		case ARM64_VAS_8B:
+		case ARM64_VAS_4B:
+		case ARM64_VAS_1B:
+			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 8 * op.vector_index));
+			return irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt8Ty(_module->getContext()));
+		case ARM64_VAS_8H:
+		case ARM64_VAS_4H:
+		case ARM64_VAS_2H:
+		case ARM64_VAS_1H:
+			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 16 * op.vector_index));
+			return irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt16Ty(_module->getContext()));
+		case ARM64_VAS_4S:
+		case ARM64_VAS_2S:
+		case ARM64_VAS_1S:
+			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 32 * op.vector_index));
+			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt32Ty(_module->getContext()));
+			return irb.CreateBitCast(val, llvm::Type::getFloatTy(_module->getContext()));
+		case ARM64_VAS_2D:
+		case ARM64_VAS_1D:
+			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 64 * op.vector_index));
+			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt64Ty(_module->getContext()));
+			return irb.CreateBitCast(val, llvm::Type::getDoubleTy(_module->getContext()));
+		case ARM64_VAS_1Q:
+		case ARM64_VAS_INVALID:
+			return val;
+		default:
+			throw GenericError("Arm64: extractVectorValue(): Unknown VESS type");
+	}
 
 	return val;
 }
@@ -1167,7 +1198,7 @@ bool Capstone2LlvmIrTranslatorArm64_impl::ifVectorGeneratePseudo(cs_insn* i, cs_
 //
 
 /**
- * ARM64_INS_ADC
+ * ARM64_INS_ADC, ARM64_INS_ADCS
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateAdc(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
@@ -1182,7 +1213,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdc(cs_insn* i, cs_arm64* ai,
 
 	storeOp(ai->operands[0], val, irb);
 
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM64_INS_ADCS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_C, generateCarryAddC(op1, op2, irb, carry), irb);
@@ -1193,7 +1224,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdc(cs_insn* i, cs_arm64* ai,
 }
 
 /**
- * ARM64_INS_ADD, ARM64_INS_CMN
+ * ARM64_INS_ADD, ARM64_INS_CMN, ARM64_INS_ADDS
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateAdd(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
@@ -1216,7 +1247,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdd(cs_insn* i, cs_arm64* ai,
 		storeOp(ai->operands[0], val, irb);
 	}
 
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM64_INS_ADDS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_C, generateCarryAdd(val, op1, irb), irb);
@@ -1227,7 +1258,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdd(cs_insn* i, cs_arm64* ai,
 }
 
 /**
- * ARM64_INS_SUB, ARM64_INS_CMP
+ * ARM64_INS_SUB, ARM64_INS_SUBS, ARM64_INS_CMP
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateSub(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
@@ -1250,7 +1281,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateSub(cs_insn* i, cs_arm64* ai,
 		storeOp(ai->operands[0], val, irb);
 	}
 
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM64_INS_SUBS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_C, generateValueNegate(irb, generateBorrowSub(op1, op2, irb)), irb);
@@ -1294,7 +1325,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateNeg(cs_insn* i, cs_arm64* ai,
 }
 
 /**
- * ARM64_INS_SBC
+ * ARM64_INS_SBC, ARM64_INS_SBCS
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateSbc(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
@@ -1314,7 +1345,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateSbc(cs_insn* i, cs_arm64* ai,
 
 	storeOp(ai->operands[0], val, irb);
 
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM64_INS_SBCS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_C, generateCarryAddC(op1, op2, irb, carry), irb);
@@ -1364,16 +1395,31 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateNop(cs_insn* i, cs_arm64* ai,
 }
 
 /**
- * ARM64_INS_MOV, ARM64_INS_MVN, ARM64_INS_MOVZ, ARM64_INS_MOVN
+ * ARM64_INS_MOV, ARM64_INS_MOVS, ARM64_INS_MVN, ARM64_INS_MOVZ, ARM64_INS_MOVN,
+ * ARM64_INS_DUP
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateMov(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
 	EXPECT_IS_BINARY(i, ai, irb);
 
 	op1 = loadOp(ai->operands[1], irb);
-	if (!op1->getType()->isFloatingPointTy())
+	auto* dstType = getRegisterType(ai->operands[0].reg);
+	auto* dType = dstType;
+	if (dType->isFloatTy())
 	{
-		op1 = irb.CreateZExtOrTrunc(op1, getRegisterType(ai->operands[0].reg));
+		dType = irb.getInt32Ty();
+	}
+	if (dType->isDoubleTy())
+	{
+		dType = irb.getInt64Ty();
+	}
+	if (op1->getType()->isIntegerTy() && dType->isIntegerTy())
+	{
+		op1 = irb.CreateZExtOrTrunc(op1, dType);
+	}
+	if (op1->getType()->isIntegerTy() && dstType->isFloatingPointTy())
+	{
+		op1 = irb.CreateBitCast(op1, dstType);
 	}
 
 	if (i->id == ARM64_INS_MVN || i->id == ARM64_INS_MOVN)
@@ -1781,7 +1827,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdr(cs_insn* i, cs_arm64* ai,
 }
 
 /**
- * ARM64_INS_AND, ARM64_INS_BIC, ARM64_INS_TST
+ * ARM64_INS_AND, ARM64_INS_ANDS, ARM64_INS_BIC, ARM64_INS_BICS, ARM64_INS_TST
  */
 void Capstone2LlvmIrTranslatorArm64_impl::translateAnd(cs_insn* i, cs_arm64* ai, llvm::IRBuilder<>& irb)
 {
@@ -1790,7 +1836,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAnd(cs_insn* i, cs_arm64* ai,
 	std::tie(op1, op2) = loadOpBinaryOrTernaryOp1Op2(ai, irb);
 	op2 = irb.CreateZExtOrTrunc(op2, op1->getType());
 
-	if (i->id == ARM64_INS_BIC)
+	if (i->id == ARM64_INS_BIC || i->id == ARM64_INS_BICS)
 	{
 		op2 = generateValueNegate(irb, op2);
 	}
@@ -1801,7 +1847,7 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAnd(cs_insn* i, cs_arm64* ai,
 		storeOp(ai->operands[0], val, irb);
 	}
 
-	if (ai->update_flags)
+	if (ai->update_flags || i->id == ARM64_INS_BICS || i->id == ARM64_INS_ANDS)
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_N, irb.CreateICmpSLT(val, zero), irb);
