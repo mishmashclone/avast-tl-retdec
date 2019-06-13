@@ -47,7 +47,8 @@ bool AbiArm::isNopInstruction(cs_insn* insn)
 {
 	// True NOP variants.
 	//
-	if (insn->id == ARM_INS_NOP)
+	if (insn->id == ARM_INS_NOP
+			|| (insn->id == ARM_INS_HINT && insn->mnemonic == std::string("nop")))
 	{
 		return true;
 	}
