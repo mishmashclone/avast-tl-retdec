@@ -1950,9 +1950,11 @@ void Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::translatePseudoAsmGeneric(
 		auto access = getOperandAccess(op);
 		if (access == CS_AC_INVALID || (access & CS_AC_READ))
 		{
-			auto* o = loadOp(op, irb);
-			vals.push_back(o);
-			types.push_back(o->getType());
+			if (auto* o = loadOp(op, irb))
+			{
+				vals.push_back(o);
+				types.push_back(o->getType());
+			}
 		}
 
 		if (access & CS_AC_WRITE)
@@ -1963,7 +1965,7 @@ void Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::translatePseudoAsmGeneric(
 			if (isOperandRegister(op))
 			{
 				auto* t = getRegisterType(op.reg);
-				if (writeCnt == 1 || writeType == t)
+				if (t && (writeCnt == 1 || writeType == t))
 				{
 					writeType = t;
 				}

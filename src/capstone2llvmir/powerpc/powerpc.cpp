@@ -168,7 +168,6 @@ llvm::Value* Capstone2LlvmIrTranslatorPowerpc_impl::loadOp(
 		case PPC_OP_IMM:
 		{
 			return llvm::ConstantInt::getSigned(getDefaultType(), op.imm);
-			break;
 		}
 		case PPC_OP_MEM:
 		{

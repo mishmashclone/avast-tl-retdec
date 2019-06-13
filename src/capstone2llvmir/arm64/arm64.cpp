@@ -1095,7 +1095,10 @@ bool Capstone2LlvmIrTranslatorArm64_impl::isVectorRegister(cs_arm64_op& op) cons
 
 uint8_t Capstone2LlvmIrTranslatorArm64_impl::getOperandAccess(cs_arm64_op& op)
 {
-	return op.access;
+	auto a = op.access;
+	return a == CS_AC_INVALID || a == CS_AC_READ || a == CS_AC_WRITE
+			? a
+			: uint8_t(CS_AC_INVALID);
 }
 
 bool Capstone2LlvmIrTranslatorArm64_impl::isCondIns(cs_arm64 * i) const

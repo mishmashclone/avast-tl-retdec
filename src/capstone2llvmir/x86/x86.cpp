@@ -1658,7 +1658,10 @@ bool Capstone2LlvmIrTranslatorX86_impl::isOperandRegister(cs_x86_op& op)
 
 uint8_t Capstone2LlvmIrTranslatorX86_impl::getOperandAccess(cs_x86_op& op)
 {
-	return op.access;
+	auto a = op.access;
+	return a == CS_AC_INVALID || a == CS_AC_READ || a == CS_AC_WRITE
+			? a
+			: uint8_t(CS_AC_INVALID);
 }
 
 //
