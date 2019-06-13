@@ -752,7 +752,8 @@ bool Capstone2LlvmIrTranslatorArm_impl::isOperandRegister(cs_arm_op& op)
 uint8_t Capstone2LlvmIrTranslatorArm_impl::getOperandAccess(cs_arm_op& op)
 {
 	auto a = op.access;
-	return a == CS_AC_INVALID || a == CS_AC_READ || a == CS_AC_WRITE
+	return a == CS_AC_INVALID || a == CS_AC_READ
+					|| a == CS_AC_WRITE || a == (CS_AC_READ | CS_AC_WRITE)
 			? a
 			: uint8_t(CS_AC_INVALID);
 }
