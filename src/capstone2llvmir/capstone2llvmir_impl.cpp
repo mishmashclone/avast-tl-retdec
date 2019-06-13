@@ -2034,35 +2034,37 @@ void Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::translatePseudoAsmGeneric(
 		}
 	}
 
-	// All registers must be ok, or don't use them at all.
-	std::vector<uint32_t> writeRegs;
-	writeRegs.reserve(i->detail->regs_write_count);
-	for (std::size_t j = 0; j < i->detail->regs_write_count; ++j)
-	{
-		auto r = i->detail->regs_write[j];
-		if (writtenRegs.count(r))
-		{
-			// silently ignore
-		}
-		else if (getRegister(r))
-		{
-			writeRegs.push_back(r);
-		}
-		else
-		{
-			writeRegs.clear();
-			break;
-		}
-	}
-
-	for (auto r : writeRegs)
-	{
-		llvm::Value* val = retType->isVoidTy()
-				? llvm::cast<llvm::Value>(
-						llvm::UndefValue::get(getRegisterType(r)))
-				: llvm::cast<llvm::Value>(c);
-		storeRegister(r, val, irb);
-	}
+// TODO: This may not be correctly set by Capstone.
+//
+//	// All registers must be ok, or don't use them at all.
+//	std::vector<uint32_t> writeRegs;
+//	writeRegs.reserve(i->detail->regs_write_count);
+//	for (std::size_t j = 0; j < i->detail->regs_write_count; ++j)
+//	{
+//		auto r = i->detail->regs_write[j];
+//		if (writtenRegs.count(r))
+//		{
+//			// silently ignore
+//		}
+//		else if (getRegister(r))
+//		{
+//			writeRegs.push_back(r);
+//		}
+//		else
+//		{
+//			writeRegs.clear();
+//			break;
+//		}
+//	}
+//
+//	for (auto r : writeRegs)
+//	{
+//		llvm::Value* val = retType->isVoidTy()
+//				? llvm::cast<llvm::Value>(
+//						llvm::UndefValue::get(getRegisterType(r)))
+//				: llvm::cast<llvm::Value>(c);
+//		storeRegister(r, val, irb);
+//	}
 }
 
 template <typename CInsn, typename CInsnOp>
