@@ -274,6 +274,12 @@ TEST_F(LlvmItaniumDemanglerTests, issue_96) {
 	DEM_EQ("_ZdlPvS_", "operator delete(void*, void*)");
 }
 
+// This was segfaulting in LLVM's Allocator (BumpPointerAllocator::allocate()).
+// It was solved by increasing allocation size.
+TEST_F(LlvmItaniumDemanglerTests, SegfaultInLLVM) {
+	DEM_SUCC("_ZN5boost11multi_index6detail18ordered_index_implINS0_6memberISt4pairIKSsNS_13property_tree11basic_ptreeISsSsSt4lessISsEEEES5_XadL_ZNSB_5firstEEEEES9_NS1_9nth_layerILi2ESB_NS0_10indexed_byINS0_9sequencedINS0_3tagIN4mpl_2naESI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_EEEENS0_18ordered_non_uniqueINSG_INSA_4subs7by_nameESI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_EESC_S9_EESI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_SI_EESaISB_EEENS_3mpl6v_itemISN_NST_7vector0ISI_EELi0EEENS1_22ordered_non_unique_tagENS1_19null_augment_policyEE5copy_ERKS10_RKNS1_8copy_mapINS1_20sequenced_index_nodeINS1_18ordered_index_nodeISZ_NS1_15index_node_baseISB_SR_EEEEEESR_EE");
+}
+
 } // namespace tests
 } // namespace demangler
 } // namespace retdec

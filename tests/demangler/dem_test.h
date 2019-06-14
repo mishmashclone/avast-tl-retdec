@@ -8,6 +8,12 @@
                 EXPECT_EQ(demangler->status(), status::success); \
             } while(0)
 
+#define DEM_SUCC(mangled) \
+            do {    \
+                demangler->demangleToString(mangled); \
+                EXPECT_EQ(demangler->status(), status::success); \
+            } while(0)
+
 #define DEM_FAIL(mangled, expected_status) \
 			do { \
 				EXPECT_EQ(demangler->demangleToString(mangled), ""); \
