@@ -600,6 +600,13 @@ void Capstone2LlvmIrTranslatorX86_impl::generateRegistersCommon()
 	createRegister(X86_REG_ZMM30, _regLt);
 	createRegister(X86_REG_ZMM31, _regLt);
 
+	// BND regs.
+	//
+	createRegister(X86_REG_BND0, _regLt);
+	createRegister(X86_REG_BND1, _regLt);
+	createRegister(X86_REG_BND2, _regLt);
+	createRegister(X86_REG_BND3, _regLt);
+
 	// Debug registers.
 	//
 	createRegister(X86_REG_DR0, _regLt);
@@ -784,6 +791,11 @@ llvm::StoreInst* Capstone2LlvmIrTranslatorX86_impl::storeRegister(
 		llvm::IRBuilder<>& irb,
 		eOpConv ct)
 {
+	if (r == X86_REG_INVALID)
+	{
+		return nullptr;
+	}
+
 	auto* rt = getRegisterType(r);
 	auto pr = getParentRegister(r);
 	auto* reg = getRegister(pr);
@@ -1653,7 +1665,7 @@ llvm::Value* Capstone2LlvmIrTranslatorX86_impl::generateCcS(llvm::IRBuilder<>& i
 
 bool Capstone2LlvmIrTranslatorX86_impl::isOperandRegister(cs_x86_op& op)
 {
-	return op.type == X86_OP_REG;
+	return op.type == X86_OP_REG && op.reg != X86_REG_INVALID;
 }
 
 uint8_t Capstone2LlvmIrTranslatorX86_impl::getOperandAccess(cs_x86_op& op)
