@@ -391,7 +391,14 @@ void ParamReturn::collectExtraData(DataFlowEntry* dataflow) const
 	auto fp = _demangler->getPairFunction(fnc->getName().str());
 	if (fp.first)
 	{
-		dataflow->setCallingConvention(toCallConv(fp.second->getCallConvention()));
+		// TODO: Hack. This can set e.g. CDECL for x64, which causes segfault
+		// because it uses non-existent regiters like EAX (RAX exists instead).
+		// Sample: x86_64-pe-1924fdbdbf864b7807e577b2b11a3a18
+		if (_config->getConfig().fileFormat.is32bit())
+		{
+			dataflow->setCallingConvention(toCallConv(fp.second->getCallConvention()));
+		}
+
 		if (!fp.second->getReturnType()->isUnknown())
 		{
 			dataflow->setRetType(fp.first->getReturnType());
@@ -765,7 +772,14 @@ void ParamReturn::modifyWithDemangledData(DataFlowEntry &de, Demangler::Function
 	}
 
 	auto callConv = funcPair.second->getCallConvention();
-	de.setCallingConvention(toCallConv(callConv));
+
+	// TODO: Hack. This can set e.g. CDECL for x64, which causes segfault
+	// because it uses non-existent regiters like EAX (RAX exists instead).
+	// Sample: x86_64-pe-1924fdbdbf864b7807e577b2b11a3a18
+	if (_config->getConfig().fileFormat.is32bit())
+	{
+		de.setCallingConvention(toCallConv(callConv));
+	}
 }
 
 Type* ParamReturn::extractType(Value* from) const
