@@ -455,12 +455,14 @@ llvm::Value* Capstone2LlvmIrTranslatorArm64_impl::extractVectorValue(
 		case ARM64_VAS_1S:
 			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 32 * op.vector_index));
 			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt32Ty(_module->getContext()));
-			return irb.CreateBitCast(val, llvm::Type::getFloatTy(_module->getContext()));
+//			val = irb.CreateBitCast(val, llvm::Type::getFloatTy(_module->getContext()));
+			return val;
 		case ARM64_VAS_2D:
 		case ARM64_VAS_1D:
 			val = irb.CreateLShr(val, llvm::ConstantInt::get(val->getType(), 64 * op.vector_index));
 			val = irb.CreateZExtOrTrunc(val, llvm::IntegerType::getInt64Ty(_module->getContext()));
-			return irb.CreateBitCast(val, llvm::Type::getDoubleTy(_module->getContext()));
+//			val = irb.CreateBitCast(val, llvm::Type::getDoubleTy(_module->getContext()));
+			return val;
 		case ARM64_VAS_1Q:
 		case ARM64_VAS_INVALID:
 			return val;
@@ -2835,15 +2837,14 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateFCvtz(cs_insn* i, cs_arm64* a
 	switch(i->id)
 	{
 	case ARM64_INS_FCVTZU:
-		op1 = irb.CreateFPToSI(op1, getRegisterType(ai->operands[0].reg));
+		storeOp(ai->operands[0], op1, irb, eOpConv::FPTOSI);
 		break;
 	case ARM64_INS_FCVTZS:
-		op1 = irb.CreateFPToUI(op1, getRegisterType(ai->operands[0].reg));
+		storeOp(ai->operands[0], op1, irb, eOpConv::FPTOUI);
 		break;
 	default:
 		throw GenericError("Arm64: translateFCvtz(): Unsupported instruction id");
 	}
-	storeOp(ai->operands[0], op1, irb);
 }
 
 /**

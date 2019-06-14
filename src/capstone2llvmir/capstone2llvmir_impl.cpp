@@ -1490,6 +1490,39 @@ llvm::Function* Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::getPseudoAsmFunc
 			name);
 }
 
+llvm::Value* generateFallbackTypeConversion(
+		llvm::IRBuilder<>& irb,
+		llvm::Value* from,
+		llvm::Type* to,
+		bool sign = false)
+{
+	llvm::Value* ret = nullptr;
+
+	if (from->getType()->isIntegerTy() && to->isIntegerTy())
+	{
+		ret = irb.CreateZExtOrTrunc(from, to);
+	}
+	else if (from->getType()->isFloatingPointTy()
+			&& to->isFloatingPointTy())
+	{
+		ret = irb.CreateFPCast(from, to);
+	}
+	else if (from->getType()->isIntegerTy() && to->isFloatingPointTy())
+	{
+		ret = sign ? irb.CreateSIToFP(from, to) : irb.CreateUIToFP(from, to);
+	}
+	else if (from->getType()->isFloatingPointTy() && to->isIntegerTy())
+	{
+		ret = sign ? irb.CreateFPToSI(from, to) : irb.CreateFPToUI(from, to);
+	}
+	else
+	{
+		throw GenericError("Unhandled eOpConv::SEXT_TRUNC conversion.");
+	}
+
+	return ret;
+}
+
 template <typename CInsn, typename CInsnOp>
 llvm::Value* Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::generateTypeConversion(
 		llvm::IRBuilder<>& irb,
@@ -1510,24 +1543,11 @@ llvm::Value* Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::generateTypeConvers
 		{
 			if (from->getType()->isIntegerTy() && to->isIntegerTy())
 			{
-				ret = irb.CreateSExtOrTrunc(from, to);
-			}
-			else if (from->getType()->isFloatingPointTy()
-					&& to->isFloatingPointTy())
-			{
-				ret = irb.CreateFPCast(from, to);
-			}
-			else if (from->getType()->isIntegerTy() && to->isFloatingPointTy())
-			{
-				ret = irb.CreateSIToFP(from, to);
-			}
-			else if (from->getType()->isFloatingPointTy() && to->isIntegerTy())
-			{
-				ret = irb.CreateFPToSI(from, to);
+				ret = irb.CreateSExtOrTrunc(from, to); // primary conversion
 			}
 			else
 			{
-				throw GenericError("Unhandled eOpConv::SEXT_TRUNC conversion.");
+				ret = generateFallbackTypeConversion(irb, from, to, true);
 			}
 			break;
 		}
@@ -1535,40 +1555,72 @@ llvm::Value* Capstone2LlvmIrTranslator_impl<CInsn, CInsnOp>::generateTypeConvers
 		{
 			if (from->getType()->isIntegerTy() && to->isIntegerTy())
 			{
-				ret = irb.CreateZExtOrTrunc(from, to);
-			}
-			else if (from->getType()->isFloatingPointTy()
-					&& to->isFloatingPointTy())
-			{
-				ret = irb.CreateFPCast(from, to);
-			}
-			else if (from->getType()->isIntegerTy() && to->isFloatingPointTy())
-			{
-				ret = irb.CreateUIToFP(from, to);
-			}
-			else if (from->getType()->isFloatingPointTy() && to->isIntegerTy())
-			{
-				ret = irb.CreateFPToUI(from, to);
+				ret = irb.CreateZExtOrTrunc(from, to); // primary conversion
 			}
 			else
 			{
-				throw GenericError("Unhandled eOpConv::ZEXT_TRUNC conversion.");
+				ret = generateFallbackTypeConversion(irb, from, to);
 			}
 			break;
 		}
 		case eOpConv::FP_CAST:
 		{
-			ret = irb.CreateFPCast(from, to);
+			if (from->getType()->isFloatingPointTy() && to->isFloatingPointTy())
+			{
+				ret = irb.CreateFPCast(from, to); // primary conversion
+			}
+			else
+			{
+				ret = generateFallbackTypeConversion(irb, from, to);
+			}
 			break;
 		}
 		case eOpConv::SITOFP:
 		{
-			ret = irb.CreateSIToFP(from, to);
+			if (from->getType()->isIntegerTy() && to->isFloatingPointTy())
+			{
+				ret = irb.CreateSIToFP(from, to); // primary conversion
+			}
+			else
+			{
+				ret = generateFallbackTypeConversion(irb, from, to, true);
+			}
 			break;
 		}
 		case eOpConv::UITOFP:
 		{
-			ret = irb.CreateUIToFP(from, to);
+			if (from->getType()->isIntegerTy() && to->isFloatingPointTy())
+			{
+				ret = irb.CreateUIToFP(from, to);
+			}
+			else
+			{
+				ret = generateFallbackTypeConversion(irb, from, to);
+			}
+			break;
+		}
+		case eOpConv::FPTOSI:
+		{
+			if (from->getType()->isFloatingPointTy() && to->isIntegerTy())
+			{
+				ret = irb.CreateFPToSI(from, to);
+			}
+			else
+			{
+				ret = generateFallbackTypeConversion(irb, from, to);
+			}
+			break;
+		}
+		case eOpConv::FPTOUI:
+		{
+			if (from->getType()->isFloatingPointTy() && to->isIntegerTy())
+			{
+				ret = irb.CreateFPToUI(from, to);
+			}
+			else
+			{
+				ret = generateFallbackTypeConversion(irb, from, to);
+			}
 			break;
 		}
 		case eOpConv::NOTHING:

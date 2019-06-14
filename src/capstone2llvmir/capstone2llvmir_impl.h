@@ -176,7 +176,11 @@ class Capstone2LlvmIrTranslator_impl : virtual public Capstone2LlvmIrTranslator
 			SITOFP,
 			/// Convert to destination type using UIToFP.
 			/// Source must be integer, destination fp, or LLVM asserts.
-			UITOFP
+			UITOFP,
+			/// Convert to destination type using FPToSI.
+			FPTOSI,
+			/// Convert to destination type using FPToUI.
+			FPTOUI,
 		};
 
 		llvm::Value* generateTypeConversion(
