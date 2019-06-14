@@ -1245,13 +1245,23 @@ void Capstone2LlvmIrTranslatorArm64_impl::translateAdd(cs_insn* i, cs_arm64* ai,
 		op2 = generateFPBitCastToIntegerType(irb, op2);
 	}
 
-	auto *val = irb.CreateAdd(op1, op2);
+	llvm::Value* val = nullptr;
+	if (op1->getType()->isIntegerTy() && op2->getType()->isIntegerTy())
+	{
+		val = irb.CreateAdd(op1, op2);
+	}
+	else if (op1->getType()->isFloatingPointTy() && op2->getType()->isFloatingPointTy())
+	{
+		val = irb.CreateFAdd(op1, op2);
+	}
+
 	if (i->id != ARM64_INS_CMN)
 	{
 		storeOp(ai->operands[0], val, irb);
 	}
 
-	if (ai->update_flags || i->id == ARM64_INS_ADDS)
+	if (val->getType()->isIntegerTy()
+			&& (ai->update_flags || i->id == ARM64_INS_ADDS))
 	{
 		llvm::Value* zero = llvm::ConstantInt::get(val->getType(), 0);
 		storeRegister(ARM64_REG_CPSR_C, generateCarryAdd(val, op1, irb), irb);
