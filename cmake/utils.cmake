@@ -62,3 +62,11 @@ function(clean_cmake_files directory)
 		endif()
 	endforeach(file)
 endfunction()
+
+# add_subdirectory(dir) if the cond is true,
+#
+macro(cond_add_subdirectory dir cond)
+	if(${cond})
+		add_subdirectory(${dir})
+	endif()
+endmacro()

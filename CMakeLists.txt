@@ -1,5 +1,12 @@
+
 cmake_minimum_required(VERSION 3.6)
+
 project(retdec C CXX)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils.cmake)
 
 # Set the default build type to 'Release'.
 if(NOT CMAKE_BUILD_TYPE)
@@ -8,15 +15,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
-option(RETDEC_DOC "Build public API documentation (requires Doxygen)." OFF)
-option(RETDEC_TESTS "Build tests." OFF)
-option(RETDEC_DEV_TOOLS "Build dev tools." OFF)
-option(RETDEC_FORCE_OPENSSL_BUILD "Force OpenSSL build." OFF)
-option(RETDEC_COMPILE_YARA "Compile YARA rules at installation." ON)
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/options.cmake)
 
 # RetDec, and some dependencies (e.g. LLVM, Keystone), require Python 3.
 find_package(PythonInterp 3.4 REQUIRED)
@@ -95,15 +94,9 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
 endif()
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils.cmake)
-
 add_subdirectory(deps)
-if(RETDEC_DOC)
-	add_subdirectory(doc)
-endif()
+cond_add_subdirectory(doc RETDEC_DOC)
 add_subdirectory(scripts)
 add_subdirectory(src)
 add_subdirectory(support)
-if(RETDEC_TESTS)
-	add_subdirectory(tests)
-endif()
+cond_add_subdirectory(tests RETDEC_TESTS)
