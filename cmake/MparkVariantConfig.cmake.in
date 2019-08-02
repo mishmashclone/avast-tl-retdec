@@ -1,0 +1,13 @@
+
+get_filename_component(whereami_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+list(APPEND CMAKE_MODULE_PATH ${whereami_CMAKE_DIR})
+
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
+
+if(NOT TARGET whereami)
+    include("${whereami_CMAKE_DIR}/WhereamiTargets.cmake")
+endif()
+
+set(whereami_LIBRARIES whereami)
