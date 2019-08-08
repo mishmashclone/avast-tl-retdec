@@ -31,8 +31,8 @@ else()
 	message(STATUS "PeLib: using remote PeLib revision.")
 
 	ExternalProject_Add(pelib-project
-		URL https://github.com/avast-tl/pelib/archive/ca19a7412862328bb941970e390c952da9ccbf24.zip
-		URL_HASH SHA256=9beda253c0ebe18338e1911ff49f22a84c5fd528fb0ca7ca9adcb156412f2143
+		URL https://github.com/avast-tl/pelib/archive/26a9869c012076a32f885af07a1fcfffd98af107.zip
+		URL_HASH SHA256=ee6b2cc8237c14fbab922832f8d8e785a315cec146ad067b0a6b21f2efba207c
 		DOWNLOAD_NAME pelib.zip
 		CMAKE_ARGS
 			# This does not work on MSVC, but may be useful on Linux.

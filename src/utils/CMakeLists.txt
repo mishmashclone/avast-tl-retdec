@@ -29,7 +29,7 @@ target_link_libraries(retdec-utils
 		whereami
 		mpark_variant
 )
-if(MSVC)
+if(WIN32)
 	target_link_libraries(retdec-utils
 		PRIVATE
 			shlwapi # for PathRemoveFileSpec()
