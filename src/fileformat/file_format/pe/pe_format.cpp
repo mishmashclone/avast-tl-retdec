@@ -21,8 +21,7 @@
 #include "retdec/utils/string.h"
 #include "retdec/utils/dynamic_buffer.h"
 #include "retdec/fileformat/file_format/pe/pe_format.h"
-#include "retdec/fileformat/file_format/pe/pe_format_parser/pe_format_parser32.h"
-#include "retdec/fileformat/file_format/pe/pe_format_parser/pe_format_parser64.h"
+#include "retdec/fileformat/file_format/pe/pe_format_parser.h"
 #include "retdec/fileformat/types/dotnet_headers/metadata_tables.h"
 #include "retdec/fileformat/types/dotnet_types/dotnet_type_reconstructor.h"
 #include "retdec/fileformat/types/visual_basic/visual_basic_structures.h"
@@ -572,15 +571,13 @@ void PeFormat::initLoaderErrorInfo()
 void PeFormat::initStructures(const std::string & dllListFile)
 {
 	formatParser = nullptr;
-	peHeader32 = nullptr;
-	peHeader64 = nullptr;
 	errorLoadingDllList = false;
 
 	// If we got an override list of dependency DLLs, we load them into the map
 	initDllList(dllListFile);
 	stateIsValid = false;
 
-	file = new PeFile64(fileStream);
+	file = new PeFileT(fileStream);
 	if (file)
 	{
 		try
@@ -588,8 +585,6 @@ void PeFormat::initStructures(const std::string & dllListFile)
 			if(file->loadPeHeaders(bytes) == ERROR_NONE)
 				stateIsValid = true;
 
-			//file->readMzHeader();
-			//file->readPeHeader();
 			file->readCoffSymbolTable(bytes);
 			file->readImportDirectory();
 			file->readIatDirectory();
@@ -607,23 +602,7 @@ void PeFormat::initStructures(const std::string & dllListFile)
 			initLoaderErrorInfo();
 
 			// Create an instance of PeFormatParser32/PeFormatParser64
-			if(file->imageLoader().getImageBitability() == 64)
-				formatParser = new PeFormatParser64(this, static_cast<PeFileT<64>*>(file));
-			else
-				formatParser = new PeFormatParser32(this, static_cast<PeFileT<32>*>(file));
-
-			/*
-			//mzHeader = file->mzHeader();
-			if (auto *f32 = isPe32())
-			{
-				peHeader32 = &(f32->peHeader());
-				formatParser = new PeFormatParser32(this, static_cast<PeFileT<32>*>(file));
-			}
-			else if (auto *f64 = isPe64())
-			{
-				peHeader64 = &(f64->peHeader());
-			}
-			*/
+			formatParser = new PeFormatParser(this, file);
 		}
 		catch(...)
 		{}
@@ -2984,7 +2963,7 @@ std::size_t PeFormat::getBytesPerWord() const
 		case PELIB_IMAGE_FILE_MACHINE_R3000_LITTLE:
 			return 4;
 		case PELIB_IMAGE_FILE_MACHINE_R4000:
-			return (isPe64() ? 8 : 4);
+			return formatParser->getPointerSize();
 		case PELIB_IMAGE_FILE_MACHINE_R10000:
 			return 8;
 		case PELIB_IMAGE_FILE_MACHINE_WCEMIPSV2:
@@ -3007,7 +2986,7 @@ std::size_t PeFormat::getBytesPerWord() const
 		// Architecture::POWERPC
 		case PELIB_IMAGE_FILE_MACHINE_POWERPC:
 		case PELIB_IMAGE_FILE_MACHINE_POWERPCFP:
-			return (isPe64() ? 8 : 4);
+			return formatParser->getPointerSize();
 
 		// unsupported architecture
 		default:
@@ -3140,7 +3119,7 @@ std::size_t PeFormat::getSectionTableOffset() const
 
 std::size_t PeFormat::getSectionTableEntrySize() const
 {
-	return PELIB_IMAGE_SECTION_HEADER::size();
+	return sizeof(PELIB_IMAGE_SECTION_HEADER);
 }
 
 std::size_t PeFormat::getSegmentTableOffset() const
@@ -3153,13 +3132,9 @@ std::size_t PeFormat::getSegmentTableEntrySize() const
 	return 0;
 }
 
-/**
- * Get reference to MZ header
- * @return Reference to MZ header
- */
-const PeLib::MzHeader & PeFormat::getMzHeader() const
+const PeLib::ImageLoader & PeFormat::getImageLoader() const
 {
-	return mzHeader;
+	return file->imageLoader();
 }
 
 /**
@@ -3168,7 +3143,7 @@ const PeLib::MzHeader & PeFormat::getMzHeader() const
  */
 std::size_t PeFormat::getMzHeaderSize() const
 {
-	return mzHeader.size();
+	return sizeof(PELIB_IMAGE_DOS_HEADER);
 }
 
 /**
@@ -3189,7 +3164,7 @@ std::size_t PeFormat::getOptionalHeaderSize() const
  */
 std::size_t PeFormat::getPeHeaderOffset() const
 {
-	return mzHeader.getAddressOfPeHeader();
+	return formatParser->getPeHeaderOffset();
 }
 
 /**
@@ -3405,16 +3380,6 @@ bool PeFormat::initDllList(const std::string & dllListFile)
 	// Sanity check
 //	assert(isMissingDependency("kernel32.dll") == false);
 	return true;
-}
-
-PeLib::PeFile32* PeFormat::isPe32() const
-{
-	return dynamic_cast<PeFile32*>(file);
-}
-
-PeLib::PeFile64* PeFormat::isPe64() const
-{
-	return dynamic_cast<PeFile64*>(file);
 }
 
 /**
