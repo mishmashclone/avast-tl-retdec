@@ -8388,6 +8388,17 @@ rule molebox_uv {
 		$1 at pe.entry_point
 }
 
+rule molebox_uv_01 {
+	meta:
+		tool = "P"
+		name = "MoleBox"
+		pattern = "558BEC6AFF6800000000680000000064A1000000005064892500000000"
+	strings:
+		$1 = { 55 8B EC 6A FF 68 00 00 00 00 68 00 00 00 00 64 A1 00 00 00 00 50 64 89 25 00 00 00 00 }
+	condition:
+		$1 at pe.entry_point
+}
+
 rule molebox_20 {
 	meta:
 		tool = "P"
