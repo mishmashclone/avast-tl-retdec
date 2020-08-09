@@ -137,6 +137,8 @@ target_link_libraries(bin2llvmir
 		retdec::common
 		retdec::utils
 		retdec::deps::llvm
+	PRIVATE
+		retdec::deps::capstone
 )
 
 set_target_properties(bin2llvmir

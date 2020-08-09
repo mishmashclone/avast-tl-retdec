@@ -4,6 +4,7 @@
  * @copyright (c) 2017 Avast Software, licensed under the MIT license
  */
 
+#include <capstone/capstone.h>
 #include <sstream>
 #include <string>
 
@@ -666,6 +667,21 @@ retdec::common::Address DetectedFunction::getAddress() const
 //==============================================================================
 //
 
+struct CapstoneInfo {
+	csh ce = 0;
+	cs_mode ceMode = CS_MODE_LITTLE_ENDIAN;
+	cs_insn* ceInsn = nullptr;
+};
+
+Finder::Finder():
+	_info(new CapstoneInfo)
+{
+}
+
+Finder::~Finder()
+{
+}
+
 /**
  * Return detected code coverage.
  *
@@ -809,7 +825,7 @@ void Finder::searchAndConfirm(
 	_config = &config;
 	_image = &image;
 
-	if (initDisassembler() || _ceInsn == nullptr)
+	if (initDisassembler() || _info->ceInsn == nullptr)
 	{
 		return;
 	}
@@ -862,8 +878,8 @@ void Finder::searchAndConfirm(
 				<< std::endl;
 	}
 
-	cs_free(_ceInsn, 1);
-	cs_close(&_ce);
+	cs_free(_info->ceInsn, 1);
+	cs_close(&_info->ce);
 }
 
 /**
@@ -872,41 +888,41 @@ void Finder::searchAndConfirm(
 bool Finder::initDisassembler()
 {
 	cs_arch arch;
-	_ceMode = CS_MODE_LITTLE_ENDIAN;
+	_info->ceMode = CS_MODE_LITTLE_ENDIAN;
 	if (_config->architecture.isX86())
 	{
 		arch = CS_ARCH_X86;
-		_ceMode = CS_MODE_32;
+		_info->ceMode = CS_MODE_32;
 	}
 	else if (_config->architecture.isMipsOrPic32())
 	{
 		arch = CS_ARCH_MIPS;
-		_ceMode = CS_MODE_MIPS32;
+		_info->ceMode = CS_MODE_MIPS32;
 	}
 	else if (_config->architecture.isArm32OrThumb())
 	{
 		arch = CS_ARCH_ARM;
-		_ceMode = CS_MODE_ARM;
+		_info->ceMode = CS_MODE_ARM;
 	}
 	else if (_config->architecture.isPpc())
 	{
 		arch = CS_ARCH_PPC;
-		_ceMode = CS_MODE_LITTLE_ENDIAN;
+		_info->ceMode = CS_MODE_LITTLE_ENDIAN;
 	}
 	else
 	{
 		return true;
 	}
 
-	if (cs_open(arch, _ceMode, &_ce) != CS_ERR_OK)
+	if (cs_open(arch, _info->ceMode, &_info->ce) != CS_ERR_OK)
 	{
 		return true;
 	}
-	if (cs_option(_ce, CS_OPT_DETAIL, CS_OPT_ON) != CS_ERR_OK)
+	if (cs_option(_info->ce, CS_OPT_DETAIL, CS_OPT_ON) != CS_ERR_OK)
 	{
 		return true;
 	}
-	_ceInsn = cs_malloc(_ce);
+	_info->ceInsn = cs_malloc(_info->ce);
 
 	return false;
 }
@@ -920,7 +936,7 @@ void Finder::solveReferences()
 		if (_config->architecture.isArm32OrThumb()
 				&& utils::containsCaseInsensitive(sigPath, "thumb"))
 		{
-			if (cs_option(_ce, CS_OPT_MODE, CS_MODE_THUMB) != CS_ERR_OK)
+			if (cs_option(_info->ce, CS_OPT_MODE, CS_MODE_THUMB) != CS_ERR_OK)
 			{
 				assert(false);
 				return;
@@ -936,7 +952,7 @@ void Finder::solveReferences()
 
 		if (modeSwitch)
 		{
-			if (cs_option(_ce, CS_OPT_MODE, _ceMode) != CS_ERR_OK)
+			if (cs_option(_info->ce, CS_OPT_MODE, _info->ceMode) != CS_ERR_OK)
 			{
 				assert(false);
 				return;
@@ -1089,16 +1105,16 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 {
 	uint64_t addr = ref;
 	ByteData data = _image->getRawSegmentData(ref);
-	if (!cs_disasm_iter(_ce, &data.first, &data.second, &addr, _ceInsn))
+	if (!cs_disasm_iter(_info->ce, &data.first, &data.second, &addr, _info->ceInsn))
 	{
 		return Address();
 	}
-	auto& mips = _ceInsn->detail->mips;
+	auto& mips = _info->ceInsn->detail->mips;
 
 	// j target_function
 	// jal target_function
 	//
-	if (isJumpInsn_mips(_ce, _ceInsn)
+	if (isJumpInsn_mips(_info->ce, _info->ceInsn)
 			&& mips.op_count == 1
 			&& mips.operands[0].type == MIPS_OP_IMM)
 	{
@@ -1107,7 +1123,7 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 	// lui reg, upper
 	// ...
 	//
-	else if (_ceInsn->id == MIPS_INS_LUI
+	else if (_info->ceInsn->id == MIPS_INS_LUI
 			&& mips.op_count == 2
 			&& mips.operands[0].type == MIPS_OP_REG
 			&& mips.operands[1].type == MIPS_OP_IMM)
@@ -1116,7 +1132,7 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 		unsigned s = _config->architecture.getBitSize() / 2;
 		uint64_t upper = uint64_t(mips.operands[1].imm) << s;
 
-		if (!cs_disasm_iter(_ce, &data.first, &data.second, &addr, _ceInsn))
+		if (!cs_disasm_iter(_info->ce, &data.first, &data.second, &addr, _info->ceInsn))
 		{
 			return Address();
 		}
@@ -1126,10 +1142,10 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 		// Maybe, we should check that skipped instruction does not use reg.
 		// Maybe, more than one instruction needs to be skipped.
 		//
-		if (!isLoadStoreInsn_mips(_ce, _ceInsn)
-				&& !isAddInsn_mips(_ce, _ceInsn))
+		if (!isLoadStoreInsn_mips(_info->ce, _info->ceInsn)
+				&& !isAddInsn_mips(_info->ce, _info->ceInsn))
 		{
-			if (!cs_disasm_iter(_ce, &data.first, &data.second, &addr, _ceInsn))
+			if (!cs_disasm_iter(_info->ce, &data.first, &data.second, &addr, _info->ceInsn))
 			{
 				return Address();
 			}
@@ -1143,7 +1159,7 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 		// sw $zero, -0x1f14($at)
 		// ==> 0x891 E0EC
 		//
-		if (isLoadStoreInsn_mips(_ce, _ceInsn)
+		if (isLoadStoreInsn_mips(_info->ce, _info->ceInsn)
 				&& mips.op_count == 2
 				&& mips.operands[1].type == MIPS_OP_MEM
 				&& mips.operands[1].mem.base == reg)
@@ -1155,7 +1171,7 @@ common::Address Finder::getAddressFromRef_mips(common::Address ref)
 		// addiu $a2, $a2, 0x5ff4
 		// ==> 0x891 5FF4
 		//
-		else if (isAddInsn_mips(_ce, _ceInsn)
+		else if (isAddInsn_mips(_info->ce, _info->ceInsn)
 				&& mips.op_count == 3
 				&& mips.operands[1].type == MIPS_OP_REG
 				&& mips.operands[1].reg == reg
@@ -1206,13 +1222,13 @@ common::Address Finder::getAddressFromRef_arm(common::Address ref)
 	//
 	uint64_t addr = ref;
 	ByteData data = _image->getRawSegmentData(ref);
-	if (cs_disasm_iter(_ce, &data.first, &data.second, &addr, _ceInsn))
+	if (cs_disasm_iter(_info->ce, &data.first, &data.second, &addr, _info->ceInsn))
 	{
-		auto& arm = _ceInsn->detail->arm;
+		auto& arm = _info->ceInsn->detail->arm;
 
-		bool isBr = cs_insn_group(_ce, _ceInsn, ARM_GRP_JUMP)
-				|| cs_insn_group(_ce, _ceInsn, ARM_GRP_CALL)
-				|| cs_insn_group(_ce, _ceInsn, ARM_GRP_BRANCH_RELATIVE);
+		bool isBr = cs_insn_group(_info->ce, _info->ceInsn, ARM_GRP_JUMP)
+				|| cs_insn_group(_info->ce, _info->ceInsn, ARM_GRP_CALL)
+				|| cs_insn_group(_info->ce, _info->ceInsn, ARM_GRP_BRANCH_RELATIVE);
 
 		if (isBr
 				&& arm.op_count == 1
@@ -1233,7 +1249,7 @@ common::Address Finder::getAddressFromRef_arm(common::Address ref)
 		}
 		// mov pc, lr (return)
 		//
-		else if (_ceInsn->id == ARM_INS_MOV
+		else if (_info->ceInsn->id == ARM_INS_MOV
 				&& arm.op_count == 2
 				&& arm.operands[0].type == ARM_OP_REG
 				&& arm.operands[0].reg == ARM_REG_PC
@@ -1279,11 +1295,11 @@ common::Address Finder::getAddressFromRef_ppc(common::Address ref)
 	//
 	uint64_t addr = ref;
 	ByteData data = _image->getRawSegmentData(ref);
-	if (cs_disasm_iter(_ce, &data.first, &data.second, &addr, _ceInsn))
+	if (cs_disasm_iter(_info->ce, &data.first, &data.second, &addr, _info->ceInsn))
 	{
-		auto& ppc = _ceInsn->detail->ppc;
+		auto& ppc = _info->ceInsn->detail->ppc;
 
-		if (_ceInsn->id == PPC_INS_BL
+		if (_info->ceInsn->id == PPC_INS_BL
 				&& ppc.op_count == 1
 				&& ppc.operands[0].type == PPC_OP_IMM)
 		{
@@ -1437,16 +1453,16 @@ void Finder::checkRef_x86(Reference& ref)
 
 	uint64_t addr = ref.target;
 	ByteData bytes = _image->getRawSegmentData(ref.target);
-	if (cs_disasm_iter(_ce, &bytes.first, &bytes.second, &addr, _ceInsn))
+	if (cs_disasm_iter(_info->ce, &bytes.first, &bytes.second, &addr, _info->ceInsn))
 	{
-		auto& x86 = _ceInsn->detail->x86;
+		auto& x86 = _info->ceInsn->detail->x86;
 
 		// Pattern: reference to stub function jumping to import:
 		//     _localeconv     proc near
 		//     FF 25 E0 B1 40 00        jmp ds:__imp__localeconv
 		//     _localeconv     endp
 		//
-		if (_ceInsn->id == X86_INS_JMP
+		if (_info->ceInsn->id == X86_INS_JMP
 				&& x86.op_count == 1
 				&& x86.operands[0].type == X86_OP_MEM
 				&& x86.operands[0].mem.segment == X86_REG_INVALID

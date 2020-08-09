@@ -16,8 +16,8 @@ target_link_libraries(stacofin
 	PUBLIC
 		retdec::config
 		retdec::common
-		retdec::deps::capstone
 	PRIVATE
+		retdec::deps::capstone
 		retdec::loader
 		retdec::yaracpp
 		retdec::utils

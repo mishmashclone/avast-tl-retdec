@@ -8,11 +8,10 @@
 #define RETDEC_STACOFIN_STACOFIN_H
 
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <capstone/capstone.h>
 
 #include "retdec/config/config.h"
 #include "retdec/common/address.h"
@@ -106,11 +105,17 @@ using DetectedFunctionsPtrMultimap = typename std::multimap<
 		common::Address,
 		DetectedFunction*>;
 
+struct CapstoneInfo;
+
 /**
  * Finder implementation using Yara.
  */
 class Finder
 {
+	public:
+		Finder();
+		~Finder();
+
 	public:
 		/// @name Actions.
 		/// @{
@@ -179,9 +184,7 @@ class Finder
 		const retdec::config::Config* _config = nullptr;
 		const retdec::loader::Image* _image = nullptr;
 
-		csh _ce = 0;
-		cs_mode _ceMode = CS_MODE_LITTLE_ENDIAN;
-		cs_insn* _ceInsn = nullptr;
+		std::unique_ptr<CapstoneInfo> _info;
 
 		std::map<common::Address, std::string> _imports;
 		std::set<std::string> _sectionNames;

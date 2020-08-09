@@ -30,8 +30,8 @@ target_include_directories(capstone2llvmir
 target_link_libraries(capstone2llvmir
 	PUBLIC
 		retdec::common
-		retdec::deps::capstone
 		retdec::deps::llvm
+		retdec::deps::capstone
 )
 
 set_target_properties(capstone2llvmir
