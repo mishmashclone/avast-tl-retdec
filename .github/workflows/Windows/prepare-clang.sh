@@ -10,4 +10,4 @@ mkdir -p $CLANG_DIR_OUT
 cd $CLANG_DIR_OUT
 
 # Extract clang there.
-7z x $download_path\llvm.exe
+7z x $download_path/llvm.exe
