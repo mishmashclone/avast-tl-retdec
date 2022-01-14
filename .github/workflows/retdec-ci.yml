@@ -1,0 +1,107 @@
+## Configuration of Github Actions CI for RetDec
+
+name: RetDec CI
+
+on:
+    push:
+        branches:
+            - master   # Activate CI on push on master.
+            - 'test-*' # Activate CI on branch with prefix test-.
+
+    pull_request:
+        branches:
+            - master # Activate on pull request.
+
+env:
+    # Universal ENV variable containing path to all workflows scripts.
+    # Each OS has it's own directory there: Windows, macOS, Linux.
+    # Names of directories are compatible with the $RUNNER_OS variable.
+    WORKFLOWS_DIR: ${{ github.workspace }}/.github/workflows/
+
+jobs:
+    ci-runner:
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+                type: [Release, Debug]
+
+            # Let other builds finish.
+            fail-fast: false
+
+        runs-on: ${{ matrix.os }}
+
+        steps:
+            # Checkouts the correct commit/branch.
+            - uses: actions/checkout@v2
+
+            # Installs dependencies on all systems.
+            - name: Install Dependencies
+              run: bash "${WORKFLOWS_DIR}/${RUNNER_OS}/install-deps.sh"
+              shell: bash
+
+            # Windows specific dependencies that we cannot install from bash.
+            - name: Windows Additional Packages
+              if: runner.os == 'Windows'
+              run: |
+                    C:\msys64\usr\bin\pacman -S mingw-w64-i686-gcc --noconfirm
+                    C:\msys64\usr\bin\pacman -S mingw-w64-x86_64-gcc --noconfirm
+
+            - name: Create Build Directory
+              run: mkdir -p build
+
+            - name: Build RetDec
+              run: bash "${WORKFLOWS_DIR}/${RUNNER_OS}/build.sh"
+              shell: bash
+              working-directory: build
+              env:
+                  BUILD_TYPE: ${{ matrix.type }}
+
+            # Regression tests framework requires specific version of clang.
+            # The following script(s) prepares clang on each platform.
+            - name: Prepare Clang
+              run: bash "${WORKFLOWS_DIR}/${RUNNER_OS}/prepare-clang.sh"
+              shell: bash
+              working-directory: build
+              env:
+                  # Clang will be available in build/clang
+                  CLANG_DIR_OUT: clang
+
+            - name: Clone RetDec RT Framework
+              run: git clone https://github.com/avast/retdec-regression-tests-framework
+              working-directory: build
+
+            - name: Clone RetDec RT
+              run: git clone https://github.com/avast/retdec-regression-tests
+              working-directory: build
+
+            - name: Run Tests
+              run: |
+                    export "BUILD_DIR=$PWD/build"
+                    bash "${WORKFLOWS_DIR}/${RUNNER_OS}/run-tests.sh"
+              shell: bash
+
+            # Prepare files for publishing/release. The resulting structure:
+            #   RetDec-OSType-Release
+            #   |_ bin
+            #   |_ include
+            #   |_ lib
+            #   |_ share
+            #   |  \__ retdec/support/
+            #   |
+            #   |_ CHANGELOG.md
+            #   |_ LICENSE
+            #   |_ LICENSE-THIRD-PARTY
+            #   \_ README.md
+            - name: Prepare Files for Publishing
+              if: matrix.type == 'Release'
+              run: |
+                  cp LICENSE* build/install/
+                  cp CHANGELOG.md build/install/
+                  cp README.md build/install/
+
+            - name: Archive Artifacts
+              if: matrix.type == 'Release'
+              uses: actions/upload-artifact@v1
+              with:
+                  name: RetDec-${{ runner.os }}-Release
+                  path: build/install
