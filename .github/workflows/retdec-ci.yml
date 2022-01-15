@@ -39,13 +39,6 @@ jobs:
               run: bash "${WORKFLOWS_DIR}/${RUNNER_OS}/install-deps.sh"
               shell: bash
 
-            # Windows specific dependencies that we cannot install from bash.
-            - name: Windows Additional Packages
-              if: runner.os == 'Windows'
-              run: |
-                    C:\msys64\usr\bin\pacman -S mingw-w64-i686-gcc --noconfirm
-                    C:\msys64\usr\bin\pacman -S mingw-w64-x86_64-gcc --noconfirm
-
             - name: Create Build Directory
               run: mkdir -p build
 
@@ -55,6 +48,13 @@ jobs:
               working-directory: build
               env:
                   BUILD_TYPE: ${{ matrix.type }}
+
+            # Windows specific dependencies that we cannot install from bash.
+            - name: Windows Additional Packages
+              if: runner.os == 'Windows'
+              run: |
+                    C:\msys64\usr\bin\pacman -S mingw-w64-i686-gcc --noconfirm
+                    C:\msys64\usr\bin\pacman -S mingw-w64-x86_64-gcc --noconfirm
 
             # Regression tests framework requires specific version of clang.
             # The following script(s) prepares clang on each platform.
